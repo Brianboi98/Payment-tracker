@@ -1,245 +1,326 @@
-import { useState, useEffect } from "react";
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Status Pembayaran</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-const STORAGE_KEY = "payment-tracker-records";
-
-const DEFAULT_DATA = [
-  { id: 1, name: "Irfan", status: "unpaid" }
-];
-
-export default function PaymentTracker() {
-  const [records, setRecords] = useState([]);
-  const [newName, setNewName] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-
-  // Load from storage on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const result = await window.storage.get(STORAGE_KEY);
-        setRecords(result ? JSON.parse(result.value) : DEFAULT_DATA);
-      } catch {
-        setRecords(DEFAULT_DATA);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  // Save to storage whenever records change
-  const save = async (updated) => {
-    setRecords(updated);
-    try {
-      await window.storage.set(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error("Storage error", e);
+    body {
+      min-height: 100vh;
+      background: #f7f4ef;
+      font-family: Georgia, serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
     }
-  };
 
-  const toggleStatus = (id) => {
-    save(records.map(r =>
-      r.id === id ? { ...r, status: r.status === "paid" ? "unpaid" : "paid" } : r
-    ));
-  };
+    .container { width: 100%; max-width: 540px; }
 
-  const addRecord = () => {
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-    const newRecord = { id: Date.now(), name: trimmed, status: "unpaid" };
-    save([...records, newRecord]);
-    setNewName("");
-    setAdding(false);
-  };
+    h1 {
+      font-size: 2rem;
+      font-weight: normal;
+      color: #1a1a1a;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.25rem;
+    }
 
-  const deleteRecord = (id) => {
-    save(records.filter(r => r.id !== id));
-  };
+    .summary {
+      font-size: 0.75rem;
+      color: #999;
+      font-family: monospace;
+      letter-spacing: 0.05em;
+      margin-bottom: 2rem;
+    }
 
-  const paidCount = records.filter(r => r.status === "paid").length;
-  const unpaidCount = records.length - paidCount;
+    .card {
+      background: #fff;
+      border: 1px solid #e0dbd4;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
 
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: "#f7f4ef",
-      fontFamily: "'Georgia', serif",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "2rem"
-    }}>
-      <div style={{ width: "100%", maxWidth: 540 }}>
+    .col-header {
+      display: grid;
+      grid-template-columns: 1fr 120px 40px;
+      padding: 0.6rem 1.2rem;
+      border-bottom: 1px solid #e0dbd4;
+      background: #faf9f7;
+    }
 
-        {/* Header */}
-        <div style={{ marginBottom: "2rem" }}>
-          <h1 style={{
-            fontSize: "2rem",
-            fontWeight: "normal",
-            color: "#1a1a1a",
-            letterSpacing: "-0.03em",
-            marginBottom: "0.25rem"
-          }}>
-            Status Pembayaran
-          </h1>
-          <p style={{ fontSize: "0.8rem", color: "#999", fontFamily: "monospace", letterSpacing: "0.05em" }}>
-            {paidCount} PAID · {unpaidCount} UNPAID · {records.length} TOTAL
-          </p>
-        </div>
+    .col-header span {
+      font-size: 0.65rem;
+      color: #aaa;
+      font-family: monospace;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
 
-        {/* Table */}
-        <div style={{
-          background: "#fff",
-          border: "1px solid #e0dbd4",
-          borderRadius: "6px",
-          overflow: "hidden",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.05)"
-        }}>
+    .col-header span:nth-child(2) { text-align: center; }
 
-          {/* Column headers */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 120px 40px",
-            padding: "0.6rem 1.2rem",
-            borderBottom: "1px solid #e0dbd4",
-            background: "#faf9f7"
-          }}>
-            <span style={{ fontSize: "0.65rem", color: "#aaa", fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>Name</span>
-            <span style={{ fontSize: "0.65rem", color: "#aaa", fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "center" }}>Status</span>
-            <span />
-          </div>
+    #records { list-style: none; }
 
-          {loading ? (
-            <div style={{ padding: "2rem", textAlign: "center", color: "#ccc", fontFamily: "monospace", fontSize: "0.75rem" }}>
-              Loading…
-            </div>
-          ) : records.length === 0 ? (
-            <div style={{ padding: "2rem", textAlign: "center", color: "#bbb", fontSize: "0.85rem" }}>
-              No records yet.
-            </div>
-          ) : (
-            records.map((r, i) => (
-              <div key={r.id} style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 120px 40px",
-                alignItems: "center",
-                padding: "1rem 1.2rem",
-                borderBottom: i < records.length - 1 ? "1px solid #f0ece6" : "none",
-                transition: "background 0.15s"
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = "#faf9f7"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-              >
-                {/* Name */}
-                <span style={{ fontSize: "1rem", color: "#1a1a1a", fontWeight: "500" }}>{r.name}</span>
+    .record-row {
+      display: grid;
+      grid-template-columns: 1fr 120px 40px;
+      align-items: center;
+      padding: 1rem 1.2rem;
+      border-bottom: 1px solid #f0ece6;
+      transition: background 0.15s;
+    }
 
-                {/* Status toggle button */}
-                <button
-                  onClick={() => toggleStatus(r.id)}
-                  title="Click to toggle"
-                  style={{
-                    cursor: "pointer",
-                    border: "none",
-                    borderRadius: "3px",
-                    padding: "0.3rem 0.75rem",
-                    fontFamily: "monospace",
-                    fontSize: "0.65rem",
-                    fontWeight: "600",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase",
-                    transition: "all 0.2s",
-                    ...(r.status === "paid"
-                      ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
-                      : { background: "rgba(239,68,68,0.1)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.25)" }
-                    )
-                  }}
-                >
-                  {r.status === "paid" ? "✓ Paid" : "✗ Unpaid"}
-                </button>
+    .record-row:hover { background: #faf9f7; }
+    .record-row:last-child { border-bottom: none; }
 
-                {/* Delete */}
-                <button
-                  onClick={() => deleteRecord(r.id)}
-                  title="Remove"
-                  style={{
-                    cursor: "pointer",
-                    background: "none",
-                    border: "none",
-                    color: "#ccc",
-                    fontSize: "1rem",
-                    lineHeight: 1,
-                    padding: "0.25rem",
-                    borderRadius: "3px",
-                    transition: "color 0.15s",
-                    textAlign: "center"
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
-                  onMouseLeave={e => e.currentTarget.style.color = "#ccc"}
-                >
-                  ×
-                </button>
-              </div>
-            ))
-          )}
+    .record-name {
+      font-size: 1rem;
+      color: #1a1a1a;
+      font-weight: 500;
+    }
 
-          {/* Add new row */}
-          {adding ? (
-            <div style={{
-              display: "flex",
-              gap: "0.5rem",
-              padding: "0.75rem 1.2rem",
-              borderTop: "1px solid #e0dbd4",
-              background: "#faf9f7"
-            }}>
-              <input
-                autoFocus
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") addRecord(); if (e.key === "Escape") setAdding(false); }}
-                placeholder="Enter name…"
-                style={{
-                  flex: 1,
-                  border: "1px solid #d0cbc4",
-                  borderRadius: "4px",
-                  padding: "0.45rem 0.75rem",
-                  fontSize: "0.9rem",
-                  fontFamily: "Georgia, serif",
-                  outline: "none",
-                  background: "#fff",
-                  color: "#1a1a1a"
-                }}
-              />
-              <button onClick={addRecord} style={{
-                background: "#1a1a1a", color: "#fff", border: "none", borderRadius: "4px",
-                padding: "0.45rem 1rem", cursor: "pointer", fontSize: "0.8rem", fontFamily: "monospace"
-              }}>Add</button>
-              <button onClick={() => setAdding(false)} style={{
-                background: "none", color: "#999", border: "1px solid #e0dbd4", borderRadius: "4px",
-                padding: "0.45rem 0.75rem", cursor: "pointer", fontSize: "0.8rem"
-              }}>Cancel</button>
-            </div>
-          ) : (
-            <div style={{ borderTop: records.length > 0 ? "1px solid #e0dbd4" : "none", padding: "0.75rem 1.2rem" }}>
-              <button
-                onClick={() => setAdding(true)}
-                style={{
-                  background: "none", border: "1px dashed #c8c2bb", color: "#aaa",
-                  borderRadius: "4px", padding: "0.4rem 1rem", cursor: "pointer",
-                  fontSize: "0.78rem", fontFamily: "monospace", letterSpacing: "0.05em",
-                  width: "100%", transition: "all 0.15s"
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "#999"; e.currentTarget.style.color = "#555"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "#c8c2bb"; e.currentTarget.style.color = "#aaa"; }}
-              >
-                + Add Person
-              </button>
-            </div>
-          )}
-        </div>
+    .badge {
+      cursor: pointer;
+      border: none;
+      border-radius: 3px;
+      padding: 0.3rem 0.75rem;
+      font-family: monospace;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: all 0.2s;
+      text-align: center;
+    }
 
-        <p style={{ marginTop: "1rem", fontSize: "0.7rem", color: "#bbb", textAlign: "center", fontFamily: "monospace" }}>
-          Click a status badge to toggle · Changes saved automatically
-        </p>
-      </div>
+    .badge.paid {
+      background: rgba(34,197,94,0.12);
+      color: #16a34a;
+      border: 1px solid rgba(34,197,94,0.3);
+    }
+
+    .badge.unpaid {
+      background: rgba(239,68,68,0.1);
+      color: #dc2626;
+      border: 1px solid rgba(239,68,68,0.25);
+    }
+
+    .delete-btn {
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: #ccc;
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 0.25rem;
+      border-radius: 3px;
+      transition: color 0.15s;
+      text-align: center;
+      width: 100%;
+    }
+
+    .delete-btn:hover { color: #ef4444; }
+
+    .add-section {
+      padding: 0.75rem 1.2rem;
+      border-top: 1px solid #e0dbd4;
+    }
+
+    #add-form {
+      display: none;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    #add-form.visible { display: flex; }
+
+    #new-name-input {
+      flex: 1;
+      border: 1px solid #d0cbc4;
+      border-radius: 4px;
+      padding: 0.45rem 0.75rem;
+      font-size: 0.9rem;
+      font-family: Georgia, serif;
+      outline: none;
+      background: #fff;
+      color: #1a1a1a;
+    }
+
+    #new-name-input:focus { border-color: #999; }
+
+    .btn-add-confirm {
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.45rem 1rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: monospace;
+    }
+
+    .btn-cancel {
+      background: none;
+      color: #999;
+      border: 1px solid #e0dbd4;
+      border-radius: 4px;
+      padding: 0.45rem 0.75rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    #btn-add-open {
+      background: none;
+      border: 1px dashed #c8c2bb;
+      color: #aaa;
+      border-radius: 4px;
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-family: monospace;
+      letter-spacing: 0.05em;
+      width: 100%;
+      transition: all 0.15s;
+    }
+
+    #btn-add-open:hover { border-color: #999; color: #555; }
+
+    .hint {
+      margin-top: 1rem;
+      font-size: 0.7rem;
+      color: #bbb;
+      text-align: center;
+      font-family: monospace;
+    }
+
+    .empty {
+      padding: 2rem;
+      text-align: center;
+      color: #bbb;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div style="margin-bottom:2rem">
+    <h1>Status Pembayaran</h1>
+    <div class="summary" id="summary">0 PAID · 0 UNPAID · 0 TOTAL</div>
+  </div>
+
+  <div class="card">
+    <div class="col-header">
+      <span>Nama</span>
+      <span>Status</span>
+      <span></span>
     </div>
-  );
-}
+
+    <ul id="records"></ul>
+
+    <div class="add-section">
+      <div id="add-form">
+        <input id="new-name-input" type="text" placeholder="Masukkan nama…" />
+        <button class="btn-add-confirm" onclick="confirmAdd()">Tambah</button>
+        <button class="btn-cancel" onclick="closeForm()">Batal</button>
+      </div>
+      <button id="btn-add-open" onclick="openForm()">+ Tambah Orang</button>
+    </div>
+  </div>
+
+  <p class="hint">Klik badge status untuk tukar · Perubahan disimpan otomatik</p>
+</div>
+
+<script>
+  const KEY = "status-pembayaran-v1";
+  let records = [];
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      records = raw ? JSON.parse(raw) : [{ id: 1, name: "Irfan", status: "unpaid" }];
+    } catch {
+      records = [{ id: 1, name: "Irfan", status: "unpaid" }];
+    }
+    render();
+  }
+
+  function save() {
+    localStorage.setItem(KEY, JSON.stringify(records));
+    render();
+  }
+
+  function render() {
+    const list = document.getElementById("records");
+    list.innerHTML = "";
+
+    if (records.length === 0) {
+      list.innerHTML = '<li class="empty">Tiada rekod lagi.</li>';
+    } else {
+      records.forEach(r => {
+        const li = document.createElement("li");
+        li.className = "record-row";
+        li.innerHTML = `
+          <span class="record-name">${escHtml(r.name)}</span>
+          <button class="badge ${r.status}" onclick="toggle(${r.id})">
+            ${r.status === "paid" ? "✓ Paid" : "✗ Unpaid"}
+          </button>
+          <button class="delete-btn" onclick="del(${r.id})" title="Padam">×</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    const paid = records.filter(r => r.status === "paid").length;
+    const unpaid = records.length - paid;
+    document.getElementById("summary").textContent =
+      `${paid} PAID · ${unpaid} UNPAID · ${records.length} TOTAL`;
+  }
+
+  function toggle(id) {
+    records = records.map(r =>
+      r.id === id ? { ...r, status: r.status === "paid" ? "unpaid" : "paid" } : r
+    );
+    save();
+  }
+
+  function del(id) {
+    records = records.filter(r => r.id !== id);
+    save();
+  }
+
+  function openForm() {
+    document.getElementById("add-form").classList.add("visible");
+    document.getElementById("btn-add-open").style.display = "none";
+    document.getElementById("new-name-input").focus();
+  }
+
+  function closeForm() {
+    document.getElementById("add-form").classList.remove("visible");
+    document.getElementById("btn-add-open").style.display = "block";
+    document.getElementById("new-name-input").value = "";
+  }
+
+  function confirmAdd() {
+    const input = document.getElementById("new-name-input");
+    const name = input.value.trim();
+    if (!name) return;
+    records.push({ id: Date.now(), name, status: "unpaid" });
+    save();
+    closeForm();
+  }
+
+  document.getElementById("new-name-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") confirmAdd();
+    if (e.key === "Escape") closeForm();
+  });
+
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  load();
+</script>
+</body>
+</html>
