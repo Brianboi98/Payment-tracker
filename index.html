@@ -1,0 +1,245 @@
+import { useState, useEffect } from "react";
+
+const STORAGE_KEY = "payment-tracker-records";
+
+const DEFAULT_DATA = [
+  { id: 1, name: "Irfan", status: "unpaid" }
+];
+
+export default function PaymentTracker() {
+  const [records, setRecords] = useState([]);
+  const [newName, setNewName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+
+  // Load from storage on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await window.storage.get(STORAGE_KEY);
+        setRecords(result ? JSON.parse(result.value) : DEFAULT_DATA);
+      } catch {
+        setRecords(DEFAULT_DATA);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  // Save to storage whenever records change
+  const save = async (updated) => {
+    setRecords(updated);
+    try {
+      await window.storage.set(STORAGE_KEY, JSON.stringify(updated));
+    } catch (e) {
+      console.error("Storage error", e);
+    }
+  };
+
+  const toggleStatus = (id) => {
+    save(records.map(r =>
+      r.id === id ? { ...r, status: r.status === "paid" ? "unpaid" : "paid" } : r
+    ));
+  };
+
+  const addRecord = () => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    const newRecord = { id: Date.now(), name: trimmed, status: "unpaid" };
+    save([...records, newRecord]);
+    setNewName("");
+    setAdding(false);
+  };
+
+  const deleteRecord = (id) => {
+    save(records.filter(r => r.id !== id));
+  };
+
+  const paidCount = records.filter(r => r.status === "paid").length;
+  const unpaidCount = records.length - paidCount;
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#f7f4ef",
+      fontFamily: "'Georgia', serif",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "2rem"
+    }}>
+      <div style={{ width: "100%", maxWidth: 540 }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: "2rem" }}>
+          <h1 style={{
+            fontSize: "2rem",
+            fontWeight: "normal",
+            color: "#1a1a1a",
+            letterSpacing: "-0.03em",
+            marginBottom: "0.25rem"
+          }}>
+            Status Pembayaran
+          </h1>
+          <p style={{ fontSize: "0.8rem", color: "#999", fontFamily: "monospace", letterSpacing: "0.05em" }}>
+            {paidCount} PAID · {unpaidCount} UNPAID · {records.length} TOTAL
+          </p>
+        </div>
+
+        {/* Table */}
+        <div style={{
+          background: "#fff",
+          border: "1px solid #e0dbd4",
+          borderRadius: "6px",
+          overflow: "hidden",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.05)"
+        }}>
+
+          {/* Column headers */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 120px 40px",
+            padding: "0.6rem 1.2rem",
+            borderBottom: "1px solid #e0dbd4",
+            background: "#faf9f7"
+          }}>
+            <span style={{ fontSize: "0.65rem", color: "#aaa", fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase" }}>Name</span>
+            <span style={{ fontSize: "0.65rem", color: "#aaa", fontFamily: "monospace", letterSpacing: "0.1em", textTransform: "uppercase", textAlign: "center" }}>Status</span>
+            <span />
+          </div>
+
+          {loading ? (
+            <div style={{ padding: "2rem", textAlign: "center", color: "#ccc", fontFamily: "monospace", fontSize: "0.75rem" }}>
+              Loading…
+            </div>
+          ) : records.length === 0 ? (
+            <div style={{ padding: "2rem", textAlign: "center", color: "#bbb", fontSize: "0.85rem" }}>
+              No records yet.
+            </div>
+          ) : (
+            records.map((r, i) => (
+              <div key={r.id} style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 120px 40px",
+                alignItems: "center",
+                padding: "1rem 1.2rem",
+                borderBottom: i < records.length - 1 ? "1px solid #f0ece6" : "none",
+                transition: "background 0.15s"
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = "#faf9f7"}
+                onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                {/* Name */}
+                <span style={{ fontSize: "1rem", color: "#1a1a1a", fontWeight: "500" }}>{r.name}</span>
+
+                {/* Status toggle button */}
+                <button
+                  onClick={() => toggleStatus(r.id)}
+                  title="Click to toggle"
+                  style={{
+                    cursor: "pointer",
+                    border: "none",
+                    borderRadius: "3px",
+                    padding: "0.3rem 0.75rem",
+                    fontFamily: "monospace",
+                    fontSize: "0.65rem",
+                    fontWeight: "600",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    transition: "all 0.2s",
+                    ...(r.status === "paid"
+                      ? { background: "rgba(34,197,94,0.12)", color: "#16a34a", border: "1px solid rgba(34,197,94,0.3)" }
+                      : { background: "rgba(239,68,68,0.1)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.25)" }
+                    )
+                  }}
+                >
+                  {r.status === "paid" ? "✓ Paid" : "✗ Unpaid"}
+                </button>
+
+                {/* Delete */}
+                <button
+                  onClick={() => deleteRecord(r.id)}
+                  title="Remove"
+                  style={{
+                    cursor: "pointer",
+                    background: "none",
+                    border: "none",
+                    color: "#ccc",
+                    fontSize: "1rem",
+                    lineHeight: 1,
+                    padding: "0.25rem",
+                    borderRadius: "3px",
+                    transition: "color 0.15s",
+                    textAlign: "center"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#ef4444"}
+                  onMouseLeave={e => e.currentTarget.style.color = "#ccc"}
+                >
+                  ×
+                </button>
+              </div>
+            ))
+          )}
+
+          {/* Add new row */}
+          {adding ? (
+            <div style={{
+              display: "flex",
+              gap: "0.5rem",
+              padding: "0.75rem 1.2rem",
+              borderTop: "1px solid #e0dbd4",
+              background: "#faf9f7"
+            }}>
+              <input
+                autoFocus
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") addRecord(); if (e.key === "Escape") setAdding(false); }}
+                placeholder="Enter name…"
+                style={{
+                  flex: 1,
+                  border: "1px solid #d0cbc4",
+                  borderRadius: "4px",
+                  padding: "0.45rem 0.75rem",
+                  fontSize: "0.9rem",
+                  fontFamily: "Georgia, serif",
+                  outline: "none",
+                  background: "#fff",
+                  color: "#1a1a1a"
+                }}
+              />
+              <button onClick={addRecord} style={{
+                background: "#1a1a1a", color: "#fff", border: "none", borderRadius: "4px",
+                padding: "0.45rem 1rem", cursor: "pointer", fontSize: "0.8rem", fontFamily: "monospace"
+              }}>Add</button>
+              <button onClick={() => setAdding(false)} style={{
+                background: "none", color: "#999", border: "1px solid #e0dbd4", borderRadius: "4px",
+                padding: "0.45rem 0.75rem", cursor: "pointer", fontSize: "0.8rem"
+              }}>Cancel</button>
+            </div>
+          ) : (
+            <div style={{ borderTop: records.length > 0 ? "1px solid #e0dbd4" : "none", padding: "0.75rem 1.2rem" }}>
+              <button
+                onClick={() => setAdding(true)}
+                style={{
+                  background: "none", border: "1px dashed #c8c2bb", color: "#aaa",
+                  borderRadius: "4px", padding: "0.4rem 1rem", cursor: "pointer",
+                  fontSize: "0.78rem", fontFamily: "monospace", letterSpacing: "0.05em",
+                  width: "100%", transition: "all 0.15s"
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "#999"; e.currentTarget.style.color = "#555"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "#c8c2bb"; e.currentTarget.style.color = "#aaa"; }}
+              >
+                + Add Person
+              </button>
+            </div>
+          )}
+        </div>
+
+        <p style={{ marginTop: "1rem", fontSize: "0.7rem", color: "#bbb", textAlign: "center", fontFamily: "monospace" }}>
+          Click a status badge to toggle · Changes saved automatically
+        </p>
+      </div>
+    </div>
+  );
+}
